@@ -20,7 +20,8 @@ label{font-size:13px;color:var(--mut)}
 <div class="row" hidden><button id="go">Replay</button>
 <label>Circles: <input id="n" type="range" min="2" max="7000" value="7000"> <span id="nv">7000</span></label>
 <label>Speed: <input id="sp" type="range" min="1" max="10" value="7"></label></div>
-<div class="row"><audio id="au" src="__AUDIO__" preload="auto" controls></audio></div>
+<div class="row" id="sr"><button id="start">▶ Start</button></div>
+<audio id="au" src="__AUDIO__" preload="auto" hidden></audio>
 <div id="st"></div>
 </main><script>
 const D=__DATA__;
@@ -80,10 +81,14 @@ function finish(){
 const au=document.getElementById('au'),st=document.getElementById('st');let hasAudio=false;
 function reset(restart){fa=0;t=0;path=[];done=false;document.getElementById('f').classList.remove('on');
  if(restart===true&&hasAudio){au.currentTime=0;au.play().catch(()=>{})}}
-function ready(){hasAudio=isFinite(au.duration)&&au.duration>0;if(!hasAudio)return;au.hidden=false;document.getElementById('sp').disabled=true;
- st.textContent='Press play: the map is drawn in time with the anthem and finishes when it ends.';reset(false);au.play().catch(()=>{})}
+function ready(){hasAudio=isFinite(au.duration)&&au.duration>0;if(!hasAudio)return;document.getElementById('sp').disabled=true;
+ st.textContent='Tap Start: the map is drawn in time with the anthem.';reset(false);au.play().catch(()=>{})}
 au.addEventListener('loadedmetadata',ready);
 au.addEventListener('play',()=>{if(done||au.currentTime<0.1){reset(false);st.textContent=''}});
+const sr=document.getElementById('sr'),sb=document.getElementById('start');
+sb.onclick=()=>reset(true);
+au.addEventListener('play',()=>{sr.style.display='none';st.textContent=''});
+au.addEventListener('ended',()=>{sb.textContent='↻ Play again';sr.style.display='flex'});
 au.addEventListener('error',()=>{if(!hasAudio)st.textContent=''});
 if(au.readyState>=1)ready();
 document.getElementById('go').onclick=()=>reset(true);
