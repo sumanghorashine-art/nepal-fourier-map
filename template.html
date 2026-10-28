@@ -13,18 +13,21 @@ button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:8px 1
 label{font-size:13px;color:var(--mut)}
 #f{text-align:center;font-family:Georgia,serif;font-size:clamp(15px,3.2vw,22px);line-height:1.8;opacity:0;transition:opacity 1.5s}
 #f.on{opacity:1}#f i{color:var(--blue)}#f b{color:var(--acc);font-weight:400}
+.row[hidden]{display:none}#st{text-align:center;font-size:13px;color:var(--mut);min-height:1.2em}audio{max-width:100%}
 </style></head><body><main>
 <canvas id="c" width="1200" height="800"></canvas>
-<div class="row"><button id="go">Replay</button>
-<label>Circles: <input id="n" type="range" min="2" max="400" value="400"> <span id="nv">400</span></label>
-<label>Speed: <input id="sp" type="range" min="1" max="10" value="4"></label></div>
 <div id="f"></div>
+<div class="row" hidden><button id="go">Replay</button>
+<label>Circles: <input id="n" type="range" min="2" max="7000" value="7000"> <span id="nv">7000</span></label>
+<label>Speed: <input id="sp" type="range" min="1" max="10" value="7"></label></div>
+<div class="row"><audio id="au" src="__AUDIO__" preload="auto" controls></audio></div>
+<div id="st"></div>
 </main><script>
 const D=__DATA__;
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const W=cv.width,H=cv.height;
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-let K=400,fa=0,t=0,path=[],done=false;
+const PT=2*Math.PI/16384;let K=7000,fa=0,t=0,path=[],done=false;
 // fit
 let mn=[1e9,1e9],mx=[-1e9,-1e9];
 for(let i=0;i<2000;i++){const p=pt(i/2000*2*Math.PI,D.length);mn[0]=Math.min(mn[0],p[0]);mx[0]=Math.max(mx[0],p[0]);mn[1]=Math.min(mn[1],p[1]);mx[1]=Math.max(mx[1],p[1])}
@@ -37,10 +40,11 @@ function draw(){
  ctx.beginPath();path.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
  if(!done){ctx.strokeStyle=css('--acc');ctx.lineWidth=3;ctx.stroke()}
  if(!done){let x=0,y=0;ctx.lineWidth=1;
+  const cm=css('--mut')+'55',cf=css('--fg')+'99';
   for(let i=0;i<K;i++){const[f,a,b]=D[i];const r=Math.hypot(a,b),ph=Math.atan2(b,a)+f*t;
    const nx=x+r*Math.cos(ph),ny=y+r*Math.sin(ph);
-   if(i>0){ctx.beginPath();ctx.arc(X(x),Y(y),r*S,0,7);ctx.strokeStyle=css('--mut')+'55';ctx.stroke();
-    ctx.beginPath();ctx.moveTo(X(x),Y(y));ctx.lineTo(X(nx),Y(ny));ctx.strokeStyle=css('--fg')+'99';ctx.stroke()}
+   if(i>0&&r*S>0.7){ctx.beginPath();ctx.arc(X(x),Y(y),r*S,0,7);ctx.strokeStyle=cm;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(X(x),Y(y));ctx.lineTo(X(nx),Y(ny));ctx.strokeStyle=cf;ctx.stroke()}
    x=nx;y=ny}
   ctx.beginPath();ctx.arc(X(x),Y(y),4,0,7);ctx.fillStyle=css('--fg');ctx.fill()}
 }
@@ -55,8 +59,14 @@ function drawEmblems(){
  const r=0.066*sw,[c,d]=px(0.79,0.80);star(c,d,0.55*r,r,12,-Math.PI/2);
  ctx.restore()}
 function step(){
- if(!done){const sp=+document.getElementById('sp').value*0.0005;
-  for(let j=0;j<4&&!done;j++){const p=pt(t,K);path.push([X(p[0]),Y(p[1])]);t+=sp/4;if(t>=2*Math.PI){done=true;finish()}}}
+ if(!done){
+  if(hasAudio){
+   if(!au.paused||au.ended){const T2=2*Math.PI,g=Math.min(1,au.currentTime/au.duration)*T2;
+    if(g<t-0.05){path=[];t=0}
+    while(t<g){const p=pt(t,K);path.push([X(p[0]),Y(p[1])]);t+=PT}
+    if(au.ended||g>=T2-PT){while(t<T2){const p=pt(t,K);path.push([X(p[0]),Y(p[1])]);t+=PT}done=true;finish()}}
+  }else{const sp=+document.getElementById('sp').value*0.0005;
+   for(let q=0;q<sp&&!done;q+=PT){const p=pt(t,K);path.push([X(p[0]),Y(p[1])]);t+=PT;if(t>=2*Math.PI){done=true;finish()}}}}
  draw();if(done)drawEmblems();requestAnimationFrame(step)}
 const f3=v=>(v<0?'−':'+')+Math.abs(v).toFixed(3);
 function finish(){
@@ -67,8 +77,16 @@ function finish(){
  `<i>y</i>(<i>t</i>) = ${D[0][2].toFixed(3)} + Σ<sub>k</sub> (<i>c<sub>k</sub></i> cos <i>kt</i> + <i>d<sub>k</sub></i> sin <i>kt</i>)<br>`+
  `<b>${K} terms</b>, 0 ≤ t ≤ 2π`;
  document.getElementById('f').classList.add('on');}
-function reset(){fa=0;t=0;path=[];done=false;document.getElementById('f').classList.remove('on');}
-document.getElementById('go').onclick=reset;
-document.getElementById('n').oninput=e=>{K=+e.target.value;document.getElementById('nv').textContent=K;reset()};
+const au=document.getElementById('au'),st=document.getElementById('st');let hasAudio=false;
+function reset(restart){fa=0;t=0;path=[];done=false;document.getElementById('f').classList.remove('on');
+ if(restart===true&&hasAudio){au.currentTime=0;au.play().catch(()=>{})}}
+function ready(){hasAudio=isFinite(au.duration)&&au.duration>0;if(!hasAudio)return;au.hidden=false;document.getElementById('sp').disabled=true;
+ st.textContent='Press play: the map is drawn in time with the anthem and finishes when it ends.';reset(false);au.play().catch(()=>{})}
+au.addEventListener('loadedmetadata',ready);
+au.addEventListener('play',()=>{if(done||au.currentTime<0.1){reset(false);st.textContent=''}});
+au.addEventListener('error',()=>{if(!hasAudio)st.textContent=''});
+if(au.readyState>=1)ready();
+document.getElementById('go').onclick=()=>reset(true);
+document.getElementById('n').oninput=e=>{K=+e.target.value;document.getElementById('nv').textContent=K;reset(false)};
 step();
 </script></body></html>
